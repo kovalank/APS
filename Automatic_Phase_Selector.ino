@@ -29,31 +29,32 @@ PZEM004Tv30 pzems[NUM_PZEMS];
 SoftwareSerial pzemSWSerial(PZEM_RX_PIN, PZEM_TX_PIN);
 #endif
 
-unsigned long Sensorlooptime = 0;
-long Sensorloopint = 300;
 
-unsigned long Phaselooptime = 0;
+long Sensorloopint = 300;
 long Phaseloopint = 400;
+unsigned long Sensorloop = 0;
+unsigned long R_Loop = 0;
+unsigned long Y_Loop = 0;
+unsigned long B_Loop = 0;
 
 unsigned long RVK_Ondelay_milli = 0;
 unsigned long YVK_Ondelay_milli = 0;
 unsigned long BVK_Ondelay_milli = 0;
 
-const int RVK = 18;
-const int YVK = 19;
-const int BVK = 23;
-const int Rvin = 36;
-const int Yvin = 39;
-const int Bvin = 34;
-const int UV_POT_PIN = 35;
-const int OV_POT_PIN = 32;
-const int VT_POT_PIN = 33;
-const int BYP_PIN = 25;
-const int KBYP = 26;
+const int RVK = 25;
+const int YVK = 26;
+const int BVK = 27;
+const int UV_POT_PIN = 36;
+const int OV_POT_PIN = 39;
+const int VT_POT_PIN = 34;
+const int BYP_PIN = 32;
+const int KBYP = 33;
 const int OK_LED_PIN = 15;
 const int FAULT_LED_PIN = 4;
 const int BUZZER_PIN = 2;
 const int Fan = 12;
+const int OLEDButtonPin = 23;  
+#define DHTPIN 13 // DHT22 sensor pin
 
 bool BYPState = HIGH;
 bool KBYPState = LOW;
@@ -63,14 +64,13 @@ int UnderVolt = 0;
 int OverVolt= 0;
 int VTD = 0;
 
-int RvoltSen=0;
-int YvoltSen=0;
-int BvoltSen=0;
-int Rvolt=0;
-int Yvolt=0;
-int Bvolt=0;
+int RvoltS = 0;
+int YvoltS = 0;
+int BvoltS = 0;
+int Rvolt = 0;
+int Yvolt = 0;
+int Bvolt = 0;
 
-const int OLEDButtonPin = 13;  
 unsigned long LastButtonPressTime = 0;
 unsigned long DebounceDelay = 50; // Debounce time in milliseconds
 int CurrentPage = 1;
@@ -97,7 +97,6 @@ uint8_t temprature_sens_read();
 
 uint8_t temprature_sens_read();
 
-#define DHTPIN 27 // DHT22 sensor pin
 #define DHTTYPE DHT22 // DHT22 sensor type
 DHT dht(DHTPIN, DHTTYPE);
 bool FanState = LOW;
@@ -127,9 +126,6 @@ void setup()
 #endif
   }
   
-  pinMode(Rvin, INPUT);
-  pinMode(Yvin, INPUT);
-  pinMode(Bvin, INPUT);
   pinMode(UV_POT_PIN, INPUT);
   pinMode(OV_POT_PIN, INPUT);
   pinMode(VT_POT_PIN, INPUT);
@@ -150,16 +146,16 @@ void setup()
   display.setCursor(0, 28);
   display.println("Hello... Hashva!");
   display.display();
-  delay(1000);
+  delay(1500);
   display.clearDisplay();
 }
 void loop()
 {
   unsigned long CurrentTime = millis();
 
-  if (CurrentTime - Sensorlooptime > Sensorloopint)
+  if (CurrentTime - Sensorloop > Sensorloopint)
   {
-    Sensorlooptime = CurrentTime;
+    Sensorloop = CurrentTime;
 
     RvoltS = pzems[0].voltage();
     YvoltS = pzems[1].voltage();
@@ -254,12 +250,12 @@ void loop()
         displayPage3();
         break;
     }
-
   }
-// Phase selector relays turn on/off
-if (CurrentTime - Phaselooptime > Phaseloopint)
+}
+// R Phase relays turn on/off
+if (CurrentTime - R_Loop > Phaseloopint)
 {
-    Phaselooptime = CurrentTime;
+    R_Loop = CurrentTime;
 // R-Phase RVK turn on 
   if ((Rvolt > OverVolt || Rvolt < UnderVolt) && BYPState == HIGH )
   {
@@ -286,7 +282,12 @@ if (CurrentTime - Phaselooptime > Phaseloopint)
     RVK_Ondelay_milli = 0;
     }
   }
-// Y-Phase YVK turn on 
+}
+// Y Phase
+if (CurrentTime - Y_Loop > Phaseloopint)
+{
+  Y_Loop = CurrentTime;
+  // Y-Phase YVK turn on 
   if ((Yvolt > OverVolt || Yvolt < UnderVolt) && BYPState == HIGH )
   {
     if (YVK_Ondelay_milli == 0) 
@@ -312,7 +313,11 @@ if (CurrentTime - Phaselooptime > Phaseloopint)
     YVK_Ondelay_milli = 0;
     }
   }
-// B-Phase BVK turn on 
+}
+// B Phase
+if (CurrentTime - B_Loop > Phaseloopint)
+{
+  B_Loop = CurrentTime;
   if ((Bvolt > OverVolt || Bvolt < UnderVolt) && BYPState == HIGH )
   {
     if (BVK_Ondelay_milli == 0) 
