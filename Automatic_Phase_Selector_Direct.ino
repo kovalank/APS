@@ -1,5 +1,3 @@
-#include <PZEM004Tv30.h>
-#include <SoftwareSerial.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -8,27 +6,6 @@
 #define SCREEN_WIDTH 128  // OLED display width, in pixels
 #define SCREEN_HEIGHT 64  // OLED display height, in pixels
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
-
-#if !defined(PZEM_RX_PIN) && !defined(PZEM_TX_PIN)
-#define PZEM_RX_PIN 16
-#define PZEM_TX_PIN 17
-#endif
-
-#if !defined(PZEM_SERIAL)
-#define PZEM_SERIAL Serial2
-#endif
-
-#define NUM_PZEMS 3
-
-PZEM004Tv30 pzems[NUM_PZEMS];
-
-#if defined(USE_SOFTWARE_SERIAL) && defined(ESP32)
-#error "Can not use SoftwareSerial with ESP32"
-#elif defined(USE_SOFTWARE_SERIAL)
-
-SoftwareSerial pzemSWSerial(PZEM_RX_PIN, PZEM_TX_PIN);
-#endif
-
 
 long Sensorloopint = 300;
 long Phaseloopint = 400;
@@ -41,12 +18,15 @@ unsigned long RVK_Ondelay_milli = 0;
 unsigned long YVK_Ondelay_milli = 0;
 unsigned long BVK_Ondelay_milli = 0;
 
+const int Rvin = 36;
+const int Yvin = 39;
+const int Bvin = 34;
 const int RVK = 25;
 const int YVK = 26;
 const int BVK = 27;
-const int UV_POT_PIN = 36;
-const int OV_POT_PIN = 39;
-const int VT_POT_PIN = 34;
+const int UV_POT_PIN = 35;
+const int OV_POT_PIN = 32;
+const int VT_POT_PIN = 33;
 const int BYP_PIN = 32;
 const int KBYP = 33;
 const int OK_LED_PIN = 15;
@@ -64,9 +44,6 @@ int UnderVolt = 0;
 int OverVolt= 0;
 int VTD = 0;
 
-int RvoltS = 0;
-int YvoltS = 0;
-int BvoltS = 0;
 int Rvolt = 0;
 int Yvolt = 0;
 int Bvolt = 0;
@@ -107,25 +84,9 @@ void setup()
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   dht.begin();
 
-  // For each PZEM, initialize it
-  for (int i = 0; i < NUM_PZEMS; i++) {
-
-#if defined(USE_SOFTWARE_SERIAL)
-    // Initialize the PZEMs with Software Serial
-    pzems[i] = PZEM004Tv30(pzemSWSerial, 0x10 + i);
-#elif defined(ESP32)
-    // Initialize the PZEMs with Hardware Serial2 on RX/TX pins 16 and 17
-    pzems[i] = PZEM004Tv30(PZEM_SERIAL, PZEM_RX_PIN, PZEM_TX_PIN, 0x10 + i);
-#else
-    // Initialize the PZEMs with Hardware Serial2 on the default pins
-
-    /* Hardware Serial2 is only available on certain boards.
-       For example the Arduino MEGA 2560
-    */
-    pzems[i] = PZEM004Tv30(PZEM_SERIAL, 0x10 + i);
-#endif
-  }
-  
+  pinMode(Rvin, INPUT);
+  pinMode(Yvin, INPUT);
+  pinMode(Bvin, INPUT);
   pinMode(UV_POT_PIN, INPUT);
   pinMode(OV_POT_PIN, INPUT);
   pinMode(VT_POT_PIN, INPUT);
@@ -134,6 +95,7 @@ void setup()
   pinMode(OK_LED_PIN, OUTPUT);
   pinMode(FAULT_LED_PIN, OUTPUT);
   pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(Fan, OUTPUT);
   pinMode(RVK, OUTPUT);
   pinMode(YVK, OUTPUT);
   pinMode(BVK, OUTPUT);
@@ -149,6 +111,37 @@ void setup()
   delay(1500);
   display.clearDisplay();
 }
+// get maximum reading value R Phase
+int Rmax() {
+  int maxR = 0;
+  for (int R = 0; R < 100; R++) {
+    int Rphase = analogRead(Rvin);  // read from analog channel 0 (A0)
+    if (maxR < Rphase) maxR = Rphase;
+    delayMicroseconds(100);
+  }
+  return maxR;
+}
+// get maximum reading value Y Phase
+int Ymax() {
+  int maxY = 0;
+  for (int Y = 0; Y < 100; Y++) {
+    int Yphase = analogRead(Yvin);  // read from analog channel 1 (A1)
+    if (maxY < Yphase) maxY = Yphase;
+    delayMicroseconds(100);
+  }
+  return maxY;
+}
+// get maximum reading value B Phase
+int Bmax() {
+  int maxB = 0;
+  for (int B = 0; B < 100; B++) {
+    int Bphase = analogRead(Bvin);  // read from analog channel 2 (A2)
+    if (maxB < Bphase) maxB = Bphase;
+    delayMicroseconds(100);
+  }
+  return maxB;
+}
+
 void loop()
 {
   unsigned long CurrentTime = millis();
@@ -156,37 +149,26 @@ void loop()
   if (CurrentTime - Sensorloop > Sensorloopint)
   {
     Sensorloop = CurrentTime;
-
-    RvoltS = pzems[0].voltage();
-    YvoltS = pzems[1].voltage();
-    BvoltS = pzems[2].voltage();
-
-    if (isnan(RvoltS))
-    {
-      Rvolt = 0;
-    }
-    else
-    {
-      Rvolt = RvoltS;
-    }
-
-    if (isnan(YvoltS))
-    {
-      Yvolt = 0;
-    }
-    else
-    {
-      Yvolt = YvoltS;
-    }
-
-    if (isnan(BvoltS))
-    {
-      Bvolt = 0;
-    }
-    else
-    {
-      Bvolt = BvoltS;
-    }
+  //R phase output
+  char VoltR[10];
+  // get amplitude (maximum - or peak value)
+  uint32_t vrout = Rmax();
+  // get actual voltage (ADC voltage reference = 1.1V)
+  Rvolt = vrout * 1100 / 4095;
+  // calculate the RMS value ( = peak/√2 )
+  Rvolt /= sqrt(2);
+    
+  //Y phase output
+  char VoltY[10];
+  uint32_t vyout = Ymax();
+  Yvolt = vyout * 1100 / 4095;
+  Yvolt /= sqrt(2);
+    
+   //B phase output
+  char VoltB[10];
+  uint32_t vbout = Bmax();
+  Bvolt = vbout * 1100 / 4095;
+  Bvolt /= sqrt(2);   
     
     int UVPOT = analogRead(UV_POT_PIN);
     UnderVolt = map(UVPOT, 0, 4095, 80, 200); // Map lower threshold potentiometer value to threshold range
