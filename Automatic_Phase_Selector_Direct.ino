@@ -7,8 +7,8 @@
 #define SCREEN_HEIGHT 64  // OLED display height, in pixels
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
-long Sensorloopint = 300;
-long Phaseloopint = 400;
+long Sensorloopint = 200;
+long Phaseloopint = 100;
 unsigned long Sensorloop = 0;
 unsigned long R_Loop = 0;
 unsigned long Y_Loop = 0;
@@ -24,24 +24,24 @@ const int Bvin = 34;
 const int RVK = 25;
 const int YVK = 26;
 const int BVK = 27;
-const int UV_POT_PIN = 35;
+const int UV_POT_PIN = 33;
 const int OV_POT_PIN = 32;
-const int VT_POT_PIN = 33;
-const int BYP_PIN = 32;
-const int KBYP = 33;
-const int OK_LED_PIN = 15;
-const int FAULT_LED_PIN = 4;
-const int BUZZER_PIN = 2;
-const int Fan = 12;
-const int OLEDButtonPin = 23;  
-#define DHTPIN 13 // DHT22 sensor pin
+const int VT_POT_PIN = 35;
+const int BYP_PIN = 19;
+const int KBYP = 15;
+const int OK_LED_PIN = 4;
+const int FAULT_LED_PIN = 5;
+const int BUZZER_PIN = 18;
+const int Fan = 13;
+const int OLEDButtonPin = 23;
+#define DHTPIN 14  // DHT22 sensor pin
 
 bool BYPState = HIGH;
 bool KBYPState = LOW;
 bool BuzzerState = LOW;
 
 int UnderVolt = 0;
-int OverVolt= 0;
+int OverVolt = 0;
 int VTD = 0;
 
 int Rvolt = 0;
@@ -49,7 +49,7 @@ int Yvolt = 0;
 int Bvolt = 0;
 
 unsigned long LastButtonPressTime = 0;
-unsigned long DebounceDelay = 50; // Debounce time in milliseconds
+unsigned long DebounceDelay = 50;  // Debounce time in milliseconds
 int CurrentPage = 1;
 
 bool faultLedState = false;
@@ -66,7 +66,7 @@ int temperature;
 extern "C" {
 #endif
 
-uint8_t temprature_sens_read();
+  uint8_t temprature_sens_read();
 
 #ifdef __cplusplus
 }
@@ -74,12 +74,11 @@ uint8_t temprature_sens_read();
 
 uint8_t temprature_sens_read();
 
-#define DHTTYPE DHT22 // DHT22 sensor type
+#define DHTTYPE DHT22  // DHT22 sensor type
 DHT dht(DHTPIN, DHTTYPE);
 bool FanState = LOW;
 
-void setup()
-{
+void setup() {
   Serial.begin(115200);
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   dht.begin();
@@ -142,53 +141,51 @@ int Bmax() {
   return maxB;
 }
 
-void loop()
-{
+void loop() {
   unsigned long CurrentTime = millis();
 
-  if (CurrentTime - Sensorloop > Sensorloopint)
-  {
+  if (CurrentTime - Sensorloop > Sensorloopint) {
     Sensorloop = CurrentTime;
-  //R phase output
-  char VoltR[10];
-  // get amplitude (maximum - or peak value)
-  uint32_t vrout = Rmax();
-  // get actual voltage (ADC voltage reference = 1.1V)
-  Rvolt = vrout * 1100 / 4095;
-  // calculate the RMS value ( = peak/√2 )
-  Rvolt /= sqrt(2);
-    
-  //Y phase output
-  char VoltY[10];
-  uint32_t vyout = Ymax();
-  Yvolt = vyout * 1100 / 4095;
-  Yvolt /= sqrt(2);
-    
-   //B phase output
-  char VoltB[10];
-  uint32_t vbout = Bmax();
-  Bvolt = vbout * 1100 / 4095;
-  Bvolt /= sqrt(2);   
-    
+    //R phase output
+    char VoltR[10];
+    // get amplitude (maximum - or peak value)
+    uint32_t vrout = Rmax();
+    // get actual voltage (ADC voltage reference = 1.1V)
+    Rvolt = vrout * 1100 / 4095;
+    // calculate the RMS value ( = peak/√2 )
+    Rvolt /= sqrt(2);
+
+    //Y phase output
+    char VoltY[10];
+    uint32_t vyout = Ymax();
+    Yvolt = vyout * 1100 / 4095;
+    Yvolt /= sqrt(2);
+
+    //B phase output
+    char VoltB[10];
+    uint32_t vbout = Bmax();
+    Bvolt = vbout * 1100 / 4095;
+    Bvolt /= sqrt(2);
+
     int UVPOT = analogRead(UV_POT_PIN);
-    UnderVolt = map(UVPOT, 0, 4095, 80, 200); // Map lower threshold potentiometer value to threshold range
+    UnderVolt = map(UVPOT, 0, 4095, 80, 200);  // Map lower threshold potentiometer value to threshold range
 
     int OVPOT = analogRead(OV_POT_PIN);
-    OverVolt = map(OVPOT, 0, 4095, 240, 290); // Map upper threshold potentiometer value to threshold range
+    OverVolt = map(OVPOT, 0, 4095, 240, 290);  // Map upper threshold potentiometer value to threshold range
 
     int VTPOT = analogRead(VT_POT_PIN);
-    VTD = map(VTPOT, 0, 4095, 500, 10000); // Map sum of potentiometer values to interval range
+    VTD = map(VTPOT, 0, 4095, 500, 10000);  // Map sum of potentiometer values to interval range
 
     // Bypass Switch
     if (digitalRead(BYP_PIN) == LOW && BYPState == HIGH) {
       digitalWrite(KBYP, HIGH);
       BYPState = LOW;
-      KBYPState = HIGH;   
+      KBYPState = HIGH;
     }
     if (digitalRead(BYP_PIN) == HIGH && BYPState == LOW) {
       digitalWrite(KBYP, LOW);
       BYPState = HIGH;
-      KBYPState = LOW;   
+      KBYPState = LOW;
     }
 
     //Buzzer, OK LED and Fault LED initiation
@@ -233,102 +230,79 @@ void loop()
         break;
     }
   }
-}
-// R Phase relays turn on/off
-if (CurrentTime - R_Loop > Phaseloopint)
-{
+  // R Phase relays turn on/off
+  if (CurrentTime - R_Loop > Phaseloopint) {
     R_Loop = CurrentTime;
-// R-Phase RVK turn on 
-  if ((Rvolt > OverVolt || Rvolt < UnderVolt) && BYPState == HIGH )
-  {
-    if (RVK_Ondelay_milli == 0) 
-    {
-    RVK_Ondelay_milli = millis();  
+    // R-Phase RVK turn on
+    if ((Rvolt > OverVolt || Rvolt < UnderVolt) && BYPState == HIGH) {
+      if (RVK_Ondelay_milli == 0) {
+        RVK_Ondelay_milli = millis();
+      }
+      if (millis() - RVK_Ondelay_milli >= VTD) {
+        digitalWrite(RVK, HIGH);
+        RVK_Ondelay_milli = 0;
+      }
     }
-    if (millis() - RVK_Ondelay_milli >= VTD) 
-    {
-    digitalWrite(RVK, HIGH);
-    RVK_Ondelay_milli = 0;
-    }
-  }
-// R-Phase RVK turn off
-  if ((Rvolt < OverVolt || Rvolt > UnderVolt) || BYPState == LOW )
-  {
-    if (RVK_Ondelay_milli == 0) 
-    {
-    RVK_Ondelay_milli = millis();
-    }
-    if (millis() - RVK_Ondelay_milli >= VTD) 
-    {
-    digitalWrite(RVK, LOW);
-    RVK_Ondelay_milli = 0;
+    // R-Phase RVK turn off
+    if ((Rvolt < OverVolt || Rvolt > UnderVolt) || BYPState == LOW) {
+      if (RVK_Ondelay_milli == 0) {
+        RVK_Ondelay_milli = millis();
+      }
+      if (millis() - RVK_Ondelay_milli >= VTD) {
+        digitalWrite(RVK, LOW);
+        RVK_Ondelay_milli = 0;
+      }
     }
   }
-}
-// Y Phase
-if (CurrentTime - Y_Loop > Phaseloopint)
-{
-  Y_Loop = CurrentTime;
-  // Y-Phase YVK turn on 
-  if ((Yvolt > OverVolt || Yvolt < UnderVolt) && BYPState == HIGH )
-  {
-    if (YVK_Ondelay_milli == 0) 
-    {
-    YVK_Ondelay_milli = millis();  
+  // Y Phase
+  if (CurrentTime - Y_Loop > Phaseloopint) {
+    Y_Loop = CurrentTime;
+    // Y-Phase YVK turn on
+    if ((Yvolt > OverVolt || Yvolt < UnderVolt) && BYPState == HIGH) {
+      if (YVK_Ondelay_milli == 0) {
+        YVK_Ondelay_milli = millis();
+      }
+      if (millis() - YVK_Ondelay_milli >= VTD) {
+        digitalWrite(YVK, HIGH);
+        YVK_Ondelay_milli = 0;
+      }
     }
-    if (millis() - YVK_Ondelay_milli >= VTD) 
-    {
-    digitalWrite(YVK, HIGH);
-    YVK_Ondelay_milli = 0;
-    }
-  }
-// Y-Phase YVK turn off
-  if ((Yvolt < OverVolt || Yvolt > UnderVolt) || BYPState == LOW )
-  {
-    if (YVK_Ondelay_milli == 0) 
-    {
-    YVK_Ondelay_milli = millis();
-    }
-    if (millis() - YVK_Ondelay_milli >= VTD) 
-    {
-    digitalWrite(YVK, LOW);
-    YVK_Ondelay_milli = 0;
+    // Y-Phase YVK turn off
+    if ((Yvolt < OverVolt || Yvolt > UnderVolt) || BYPState == LOW) {
+      if (YVK_Ondelay_milli == 0) {
+        YVK_Ondelay_milli = millis();
+      }
+      if (millis() - YVK_Ondelay_milli >= VTD) {
+        digitalWrite(YVK, LOW);
+        YVK_Ondelay_milli = 0;
+      }
     }
   }
-}
-// B Phase
-if (CurrentTime - B_Loop > Phaseloopint)
-{
-  B_Loop = CurrentTime;
-  if ((Bvolt > OverVolt || Bvolt < UnderVolt) && BYPState == HIGH )
-  {
-    if (BVK_Ondelay_milli == 0) 
-    {
-    BVK_Ondelay_milli = millis();  
+  // B Phase
+  if (CurrentTime - B_Loop > Phaseloopint) {
+    B_Loop = CurrentTime;
+    if ((Bvolt > OverVolt || Bvolt < UnderVolt) && BYPState == HIGH) {
+      if (BVK_Ondelay_milli == 0) {
+        BVK_Ondelay_milli = millis();
+      }
+      if (millis() - BVK_Ondelay_milli >= VTD) {
+        digitalWrite(BVK, HIGH);
+        BVK_Ondelay_milli = 0;
+      }
     }
-    if (millis() - BVK_Ondelay_milli >= VTD) 
-    {
-    digitalWrite(BVK, HIGH);
-    BVK_Ondelay_milli = 0;
-    }
-  }
-// B-Phase BVK turn off
-  if ((Bvolt < OverVolt || Bvolt > UnderVolt) || BYPState == LOW )
-  {
-    if (BVK_Ondelay_milli == 0) 
-    {
-    BVK_Ondelay_milli = millis();
-    }
-    if (millis() - BVK_Ondelay_milli >= VTD) 
-    {
-    digitalWrite(BVK, LOW);
-    BVK_Ondelay_milli = 0;
+    // B-Phase BVK turn off
+    if ((Bvolt < OverVolt || Bvolt > UnderVolt) || BYPState == LOW) {
+      if (BVK_Ondelay_milli == 0) {
+        BVK_Ondelay_milli = millis();
+      }
+      if (millis() - BVK_Ondelay_milli >= VTD) {
+        digitalWrite(BVK, LOW);
+        BVK_Ondelay_milli = 0;
+      }
     }
   }
-}
-// Panel fan turn on/off
-  if (CurrentTime - Templooptime > Temploopint)
-  {
+  // Panel fan turn on/off
+  if (CurrentTime - Templooptime > Temploopint) {
     MCUTemp = (temprature_sens_read() - 32) / 1.8;
     temperature = dht.readTemperature();
     if (isnan(temperature)) {
@@ -344,7 +318,7 @@ if (CurrentTime - B_Loop > Phaseloopint)
     }
     Templooptime = CurrentTime;
   }
-// OLED Display page change
+  // OLED Display page change
   // Check for button press with debounce
   if (digitalRead(OLEDButtonPin) == LOW && CurrentTime - LastButtonPressTime >= DebounceDelay) {
     LastButtonPressTime = CurrentTime;
@@ -391,15 +365,14 @@ void displayPage1() {
     display.setCursor(35, 30);
     display.println(" --Normal-- ");
     display.display();
-  }
-  else {
+  } else {
     display.setCursor(35, 30);
     display.println(" ** Fault ** ");
     display.fillCircle(65, 52, 10, WHITE);
     display.display();
     display.fillCircle(65, 52, 10, BLACK);
     display.display();
-}
+  }
 }
 
 void displayPage2() {
@@ -408,7 +381,7 @@ void displayPage2() {
   display.setTextColor(WHITE);
   display.setCursor(0, 5);
   display.println("Temperature:");
-  
+
   display.setCursor(0, 22);
   display.println("MCU Temp:      *C");
   display.setCursor(55, 22);
@@ -425,8 +398,7 @@ void displayPage2() {
     display.setCursor(70, 55);
     display.println(" ON ");
     display.display();
-  }
-  else {
+  } else {
     display.setCursor(70, 55);
     display.println(" OFF ");
     display.display();
@@ -443,7 +415,7 @@ void displayPage3() {
   display.setCursor(32, 17);
   display.println(UnderVolt);
   display.setCursor(65, 17);
-  display.println( OverVolt);
+  display.println(OverVolt);
   display.setCursor(0, 35);
   display.println("V.DelayT:  ");
   display.setCursor(54, 35);
