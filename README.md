@@ -1,5 +1,5 @@
 # APS
-Automatic Phase Selector using ESP32 and PZEM004T
+Automatic Phase Selector using ESP32 and PZEM004T / Direct measurement
 The automatic phase selector is a device that automatically control the relay and couples a single-phase load to it. 
 This is useful in areas where the power grid is unstable and the phases can often be unbalanced. 
 
